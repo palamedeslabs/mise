@@ -667,19 +667,53 @@
   function extractRecipeData(html, url) {
     if (!html) return `URL: ${url}\nNo HTML retrieved.`;
 
-    // Try JSON-LD schema first — use a large slice to capture both ingredients AND steps
+    // Try to parse JSON-LD and extract recipe object directly
     const ldMatches = html.match(/<script[^>]+type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi) || [];
-    let bestLd = '';
     for (const m of ldMatches) {
-      const inner = m.replace(/<[^>]+>/g, '').trim();
-      if (inner.includes('recipeIngredient') || inner.includes('recipeInstructions')) {
-        // Keep the largest matching block (most complete recipe data)
-        if (inner.length > bestLd.length) bestLd = inner;
+      const inner = m.replace(/<script[^>]*>/i, '').replace(/<\/script>/i, '').trim();
+      try {
+        let data = JSON.parse(inner);
+        // Handle @graph wrapper (used by AllRecipes, Food Network, etc.)
+        if (data['@graph']) data = data['@graph'];
+        // Handle array of schema objects
+        if (Array.isArray(data)) {
+          data = data.find(d => d['@type'] === 'Recipe' || (Array.isArray(d['@type']) && d['@type'].includes('Recipe')));
+        }
+        if (!data || !data.recipeIngredient) continue;
+
+        // Normalize recipeInstructions — can be string, array of strings, or array of HowToStep objects
+        let steps = [];
+        const instructions = data.recipeInstructions;
+        if (typeof instructions === 'string') {
+          steps = instructions.split(/\n+/).map(s => s.trim()).filter(Boolean);
+        } else if (Array.isArray(instructions)) {
+          steps = instructions.map(s => {
+            if (typeof s === 'string') return s.trim();
+            if (s['@type'] === 'HowToSection' && Array.isArray(s.itemListElement)) {
+              return s.itemListElement.map(sub => sub.text || sub.name || '').join(' ');
+            }
+            return s.text || s.name || '';
+          }).filter(Boolean);
+        }
+
+        // Build a clean simplified object to send to Claude
+        const clean = {
+          name: data.name,
+          image: Array.isArray(data.image) ? data.image[0] : (typeof data.image === 'object' ? data.image.url : data.image),
+          recipeYield: data.recipeYield,
+          totalTime: data.totalTime,
+          recipeCategory: data.recipeCategory,
+          recipeCuisine: data.recipeCuisine,
+          recipeIngredient: data.recipeIngredient,
+          recipeInstructions: steps
+        };
+        return `Parsed recipe data (already structured):\n${JSON.stringify(clean, null, 2)}`;
+      } catch(e) {
+        // JSON parse failed, continue to next block
       }
     }
-    if (bestLd) return `JSON-LD Schema:\n${bestLd.slice(0, 20000)}`;
 
-    // Fallback: strip to text but grab more content
+    // Fallback: strip to text
     const text = html
       .replace(/<style[\s\S]*?<\/style>/gi, '')
       .replace(/<script[\s\S]*?<\/script>/gi, '')
@@ -692,7 +726,7 @@
   }
 
   function buildPrompt(url, extracted) {
-    return `You are a recipe parser. Extract the recipe and return ONLY valid JSON with no markdown or code fences.
+    return `You are a recipe parser. Extract the recipe and return ONLY valid JSON — no markdown, no code fences, no explanation.
 
 Source URL: ${url}
 
@@ -709,10 +743,17 @@ Return this exact structure:
   "ingredients": [
     { "amount": "1 cup", "name": "all-purpose flour" }
   ],
-  "steps": ["Step one.", "Step two."]
+  "steps": ["Step one.", "Step two.", "Step three."]
 }
 
-Rules: US measurements only (cups, tbsp, tsp, oz, lbs, °F). Steps as complete sentences. No ads or author bios.`;
+Rules:
+- Convert all measurements to US units (cups, tbsp, tsp, oz, lbs, °F)
+- Split ingredients into amount + name (e.g. "2 cups flour" → amount: "2 cups", name: "flour")
+- steps MUST be populated — extract every instruction step, do not skip any
+- If recipeInstructions is already provided in the content, use it directly for steps
+- Steps should be complete sentences
+- servings: extract the number only (e.g. "24 cookies" → 24)
+- No ads, author bios, or commentary`;
   }
 
   function renderRecipe(recipe, sourceUrl) {
