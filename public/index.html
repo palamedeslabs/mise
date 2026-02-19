@@ -629,11 +629,16 @@
         });
         const fetchData = await fetchResp.json();
         html = fetchData.html || '';
-      } catch(e) { html = ''; }
+        console.log('[mise] HTML length:', html.length);
+      } catch(e) {
+        console.error('[mise] Fetch failed:', e);
+        html = '';
+      }
 
       // Step 2: extract structured data
       setStatus('Reading recipe content…');
       const extracted = extractRecipeData(html, url);
+      console.log('[mise] Extracted data (first 2000 chars):\n', extracted.slice(0, 2000));
 
       // Step 3: parse with Claude via our proxy
       setStatus('Parsing with AI…');
@@ -651,14 +656,18 @@
       }
 
       const claudeData = await claudeResp.json();
+      console.log('[mise] Claude raw response:\n', claudeData.text);
+
       const clean = claudeData.text.replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
       const recipe = JSON.parse(clean);
+      console.log('[mise] Parsed recipe:', recipe);
+      console.log('[mise] Steps count:', recipe.steps?.length, recipe.steps);
 
       renderRecipe(recipe, url);
 
     } catch(err) {
       setStatus('Could not import this recipe. Try another URL. (' + err.message + ')', true);
-      console.error(err);
+      console.error('[mise] Error:', err);
     } finally {
       document.getElementById('importBtn').disabled = false;
     }
