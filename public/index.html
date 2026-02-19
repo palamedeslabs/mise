@@ -1,1 +1,834 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mise — Recipe Importer</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: #F7F3EE;
+    --ink: #1A1612;
+    --warm-mid: #8B7355;
+    --accent: #C84B31;
+    --accent-soft: #F0E8E4;
+    --border: #E2D9CE;
+    --white: #FFFFFF;
+    --step-bg: #F2EDE6;
+  }
 
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--cream);
+    color: var(--ink);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 300;
+    min-height: 100vh;
+  }
+
+  header {
+    padding: 28px 48px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    background: var(--cream);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .logo {
+    font-family: 'Playfair Display', serif;
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    color: var(--ink);
+  }
+
+  .logo span { color: var(--accent); }
+
+  .tagline {
+    font-size: 13px;
+    color: var(--warm-mid);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .import-section {
+    max-width: 720px;
+    margin: 72px auto 0;
+    padding: 0 24px;
+    text-align: center;
+  }
+
+  .import-section h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(36px, 5vw, 56px);
+    font-weight: 400;
+    line-height: 1.1;
+    letter-spacing: -1px;
+    margin-bottom: 16px;
+  }
+
+  .import-section h1 em {
+    font-style: italic;
+    color: var(--accent);
+  }
+
+  .import-section p {
+    color: var(--warm-mid);
+    font-size: 16px;
+    margin-bottom: 40px;
+    line-height: 1.6;
+  }
+
+  .url-form {
+    display: flex;
+    gap: 12px;
+    max-width: 600px;
+    margin: 0 auto 16px;
+  }
+
+  .url-input {
+    flex: 1;
+    padding: 16px 20px;
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    background: var(--white);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    color: var(--ink);
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .url-input:focus { border-color: var(--accent); }
+  .url-input::placeholder { color: #B0A89C; }
+
+  .import-btn {
+    padding: 16px 28px;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background 0.2s, transform 0.1s;
+  }
+
+  .import-btn:hover { background: #A33A22; }
+  .import-btn:active { transform: scale(0.98); }
+  .import-btn:disabled { background: #C8B9AE; cursor: not-allowed; }
+
+  .sample-links {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 12px;
+  }
+
+  .sample-link {
+    font-size: 12px;
+    color: var(--warm-mid);
+    background: var(--white);
+    border: 1px solid var(--border);
+    padding: 6px 14px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-decoration: none;
+  }
+
+  .sample-link:hover {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .status-bar {
+    max-width: 720px;
+    margin: 24px auto 0;
+    padding: 0 24px;
+    display: none;
+  }
+
+  .status-bar.visible { display: block; }
+
+  .status-inner {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 14px;
+    color: var(--warm-mid);
+  }
+
+  .spinner {
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    flex-shrink: 0;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .error-bar { background: #FEF2F0; border-color: #F5C6BE; color: var(--accent); }
+
+  .recipe-card {
+    max-width: 860px;
+    margin: 48px auto 80px;
+    padding: 0 24px;
+    display: none;
+    animation: fadeUp 0.4s ease both;
+  }
+
+  .recipe-card.visible { display: block; }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .card-inner {
+    background: var(--white);
+    border-radius: 20px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    box-shadow: 0 4px 40px rgba(26,22,18,0.06);
+  }
+
+  .recipe-hero {
+    width: 100%;
+    height: 340px;
+    object-fit: cover;
+    display: block;
+    background: var(--step-bg);
+  }
+
+  .recipe-hero-placeholder {
+    width: 100%;
+    height: 220px;
+    background: linear-gradient(135deg, var(--step-bg) 0%, var(--border) 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--warm-mid);
+    font-size: 48px;
+  }
+
+  .card-body { padding: 40px 48px 48px; }
+
+  .title-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+    margin-bottom: 8px;
+  }
+
+  .recipe-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: -0.5px;
+    color: var(--ink);
+    border: none;
+    background: transparent;
+    outline: none;
+    width: 100%;
+    resize: none;
+    padding: 0;
+  }
+
+  .recipe-title:focus {
+    background: var(--accent-soft);
+    border-radius: 6px;
+    padding: 4px 8px;
+    margin: -4px -8px;
+  }
+
+  .recipe-source {
+    font-size: 12px;
+    color: var(--warm-mid);
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .recipe-source a { color: var(--warm-mid); text-decoration: none; }
+  .recipe-source a:hover { color: var(--accent); }
+
+  .meta-row {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+    padding: 20px 0;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 36px;
+  }
+
+  .meta-item { display: flex; flex-direction: column; gap: 4px; }
+
+  .meta-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--warm-mid);
+  }
+
+  .meta-value { font-size: 15px; font-weight: 500; color: var(--ink); }
+
+  .serving-scaler { display: flex; align-items: center; gap: 8px; }
+
+  .scale-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 1.5px solid var(--border);
+    background: var(--cream);
+    color: var(--ink);
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    line-height: 1;
+  }
+
+  .scale-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+
+  .serving-count { font-size: 18px; font-weight: 500; min-width: 24px; text-align: center; }
+
+  .scale-badge {
+    display: inline-block;
+    background: var(--accent);
+    color: white;
+    font-size: 10px;
+    font-weight: 500;
+    padding: 2px 7px;
+    border-radius: 10px;
+    margin-left: 4px;
+    vertical-align: middle;
+    letter-spacing: 0.04em;
+  }
+
+  .scale-badge.hidden { display: none; }
+
+  .recipe-columns {
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    gap: 48px;
+    align-items: start;
+  }
+
+  @media (max-width: 660px) {
+    .recipe-columns { grid-template-columns: 1fr; }
+    .card-body { padding: 24px; }
+  }
+
+  .section-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 20px;
+    color: var(--ink);
+  }
+
+  .ingredient-list { list-style: none; display: flex; flex-direction: column; }
+
+  .ingredient-item {
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    font-size: 14px;
+    line-height: 1.4;
+  }
+
+  .ingredient-item:last-child { border-bottom: none; }
+
+  .ingredient-amount {
+    font-weight: 500;
+    color: var(--accent);
+    min-width: 56px;
+    font-size: 13px;
+    flex-shrink: 0;
+  }
+
+  .ingredient-name {
+    color: var(--ink);
+    border: none;
+    background: transparent;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 300;
+    outline: none;
+    width: 100%;
+    padding: 0;
+  }
+
+  .ingredient-name:focus {
+    background: var(--accent-soft);
+    border-radius: 4px;
+    padding: 2px 6px;
+    margin: -2px -6px;
+  }
+
+  .steps-list { list-style: none; display: flex; flex-direction: column; gap: 16px; }
+
+  .step-item { display: flex; gap: 16px; align-items: flex-start; }
+
+  .step-num {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--ink);
+    color: white;
+    font-size: 12px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .step-text {
+    font-size: 15px;
+    line-height: 1.65;
+    color: var(--ink);
+    border: none;
+    background: transparent;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 300;
+    outline: none;
+    width: 100%;
+    resize: none;
+    padding: 0;
+  }
+
+  .step-text:focus {
+    background: var(--accent-soft);
+    border-radius: 6px;
+    padding: 6px 10px;
+    margin: -6px -10px;
+  }
+
+  .action-bar {
+    margin-top: 40px;
+    padding-top: 28px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+  }
+
+  .btn-secondary {
+    padding: 12px 22px;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    background: transparent;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ink);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .btn-secondary:hover { border-color: var(--ink); background: var(--cream); }
+
+  .btn-primary {
+    padding: 12px 22px;
+    background: var(--ink);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .btn-primary:hover { background: #2E2620; }
+
+  .save-toast {
+    position: fixed;
+    bottom: 32px;
+    right: 32px;
+    background: var(--ink);
+    color: white;
+    padding: 14px 22px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 500;
+    display: none;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 8px 32px rgba(26,22,18,0.2);
+    animation: slideIn 0.3s ease both;
+    z-index: 200;
+  }
+
+  .save-toast.show { display: flex; }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .edit-hint {
+    font-size: 11px;
+    color: var(--warm-mid);
+    text-align: right;
+    margin-bottom: 12px;
+    opacity: 0.7;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">mise<span>.</span></div>
+  <div class="tagline">Recipe Importer — Prototype</div>
+</header>
+
+<section class="import-section" id="importSection">
+  <h1>Paste a URL.<br><em>Get just the recipe.</em></h1>
+  <p>No life stories. No ads. Just ingredients and steps — clean, editable, yours.</p>
+
+  <div class="url-form">
+    <input type="url" class="url-input" id="urlInput" placeholder="https://www.allrecipes.com/recipe/..." autocomplete="off" />
+    <button class="import-btn" id="importBtn" onclick="importRecipe()">Import</button>
+  </div>
+
+  <div class="sample-links">
+    <span style="font-size:12px;color:var(--warm-mid);align-self:center;">Try a sample:</span>
+    <a class="sample-link" onclick="useSample('https://www.allrecipes.com/recipe/10813/best-chocolate-chip-cookies/')">Chocolate Chip Cookies</a>
+    <a class="sample-link" onclick="useSample('https://www.allrecipes.com/recipe/228122/best-pasta-carbonara/')">Pasta Carbonara</a>
+    <a class="sample-link" onclick="useSample('https://www.allrecipes.com/recipe/14231/guacamole/')">Guacamole</a>
+    <a class="sample-link" onclick="useSample('https://www.allrecipes.com/recipe/87663/slow-cooker-beef-stew/')">Crockpot Beef Stew</a>
+  </div>
+</section>
+
+<div class="status-bar" id="statusBar">
+  <div class="status-inner" id="statusInner">
+    <div class="spinner" id="statusSpinner"></div>
+    <span id="statusText">Fetching recipe…</span>
+  </div>
+</div>
+
+<div class="recipe-card" id="recipeCard">
+  <div class="card-inner">
+    <div id="heroContainer"></div>
+    <div class="card-body">
+      <div class="edit-hint">✏️ Click any field to edit</div>
+      <div class="title-row">
+        <textarea class="recipe-title" id="recipeTitle" rows="2" spellcheck="false"></textarea>
+      </div>
+      <div class="recipe-source" id="recipeSource"></div>
+      <div class="meta-row">
+        <div class="meta-item">
+          <span class="meta-label">Servings</span>
+          <div class="serving-scaler">
+            <button class="scale-btn" onclick="changeServings(-1)">−</button>
+            <span class="serving-count" id="servingCount">4</span>
+            <button class="scale-btn" onclick="changeServings(1)">+</button>
+            <span class="scale-badge hidden" id="scaleBadge"></span>
+          </div>
+        </div>
+        <div class="meta-item" id="metaTime" style="display:none">
+          <span class="meta-label">Total Time</span>
+          <span class="meta-value" id="recipeTime"></span>
+        </div>
+        <div class="meta-item" id="metaCategory" style="display:none">
+          <span class="meta-label">Category</span>
+          <span class="meta-value" id="recipeCategory"></span>
+        </div>
+      </div>
+
+      <div class="recipe-columns">
+        <div>
+          <div class="section-title">Ingredients</div>
+          <ul class="ingredient-list" id="ingredientList"></ul>
+        </div>
+        <div>
+          <div class="section-title">Steps</div>
+          <ol class="steps-list" id="stepsList"></ol>
+        </div>
+      </div>
+
+      <div class="action-bar">
+        <button class="btn-secondary" onclick="resetApp()">Import Another</button>
+        <button class="btn-primary" onclick="saveRecipe()">✓ Save Recipe</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="save-toast" id="saveToast">✓ Recipe saved to your collection</div>
+
+<script>
+  let baseServings = 4;
+  let currentServings = 4;
+  let baseIngredients = [];
+
+  function useSample(url) {
+    document.getElementById('urlInput').value = url;
+    importRecipe();
+  }
+
+  function setStatus(msg, isError = false) {
+    const bar = document.getElementById('statusBar');
+    const inner = document.getElementById('statusInner');
+    const spinner = document.getElementById('statusSpinner');
+    bar.classList.add('visible');
+    document.getElementById('statusText').textContent = msg;
+    inner.className = 'status-inner' + (isError ? ' error-bar' : '');
+    spinner.style.display = isError ? 'none' : 'block';
+  }
+
+  function hideStatus() {
+    document.getElementById('statusBar').classList.remove('visible');
+  }
+
+  async function importRecipe() {
+    const url = document.getElementById('urlInput').value.trim();
+    if (!url) return;
+
+    document.getElementById('recipeCard').classList.remove('visible');
+    document.getElementById('importBtn').disabled = true;
+    setStatus('Fetching recipe page…');
+
+    try {
+      // Step 1: fetch via our own proxy
+      let html = '';
+      try {
+        const fetchResp = await fetch('/api/fetch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url })
+        });
+        const fetchData = await fetchResp.json();
+        html = fetchData.html || '';
+      } catch(e) { html = ''; }
+
+      // Step 2: extract structured data
+      setStatus('Reading recipe content…');
+      const extracted = extractRecipeData(html, url);
+
+      // Step 3: parse with Claude via our proxy
+      setStatus('Parsing with AI…');
+      const prompt = buildPrompt(url, extracted);
+
+      const claudeResp = await fetch('/api/claude', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt })
+      });
+
+      if (!claudeResp.ok) {
+        const err = await claudeResp.json();
+        throw new Error(err.error || 'Claude API error');
+      }
+
+      const claudeData = await claudeResp.json();
+      const clean = claudeData.text.replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
+      const recipe = JSON.parse(clean);
+
+      renderRecipe(recipe, url);
+
+    } catch(err) {
+      setStatus('Could not import this recipe. Try another URL. (' + err.message + ')', true);
+      console.error(err);
+    } finally {
+      document.getElementById('importBtn').disabled = false;
+    }
+  }
+
+  function extractRecipeData(html, url) {
+    if (!html) return `URL: ${url}\nNo HTML retrieved.`;
+
+    // Try JSON-LD schema first
+    const ldMatches = html.match(/<script[^>]+type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi) || [];
+    for (const m of ldMatches) {
+      const inner = m.replace(/<[^>]+>/g, '');
+      if (inner.includes('Recipe') || inner.includes('recipeIngredient')) {
+        return `JSON-LD Schema:\n${inner.slice(0, 8000)}`;
+      }
+    }
+
+    // Fallback: strip to text
+    const text = html
+      .replace(/<style[\s\S]*?<\/style>/gi, '')
+      .replace(/<script[\s\S]*?<\/script>/gi, '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 12000);
+
+    return `Page text:\n${text}`;
+  }
+
+  function buildPrompt(url, extracted) {
+    return `You are a recipe parser. Extract the recipe and return ONLY valid JSON with no markdown or code fences.
+
+Source URL: ${url}
+
+Content:
+${extracted}
+
+Return this exact structure:
+{
+  "title": "Recipe name",
+  "image": "image URL or null",
+  "servings": 4,
+  "totalTime": "45 mins or null",
+  "category": "Dessert/Dinner/etc or null",
+  "ingredients": [
+    { "amount": "1 cup", "name": "all-purpose flour" }
+  ],
+  "steps": ["Step one.", "Step two."]
+}
+
+Rules: US measurements only (cups, tbsp, tsp, oz, lbs, °F). Steps as complete sentences. No ads or author bios.`;
+  }
+
+  function renderRecipe(recipe, sourceUrl) {
+    hideStatus();
+    baseServings = recipe.servings || 4;
+    currentServings = baseServings;
+
+    baseIngredients = (recipe.ingredients || []).map(ing => ({
+      ...ing,
+      parsedAmount: parseFloat(ing.amount) || null,
+      amountText: ing.amount || ''
+    }));
+
+    // Hero
+    const heroContainer = document.getElementById('heroContainer');
+    heroContainer.innerHTML = recipe.image
+      ? `<img class="recipe-hero" src="${escHtml(recipe.image)}" alt="${escHtml(recipe.title)}" onerror="this.parentElement.innerHTML='<div class=\\'recipe-hero-placeholder\\'>🍽</div>'" />`
+      : `<div class="recipe-hero-placeholder">🍽</div>`;
+
+    document.getElementById('recipeTitle').value = recipe.title || 'Untitled Recipe';
+
+    try {
+      const domain = new URL(sourceUrl).hostname.replace('www.', '');
+      document.getElementById('recipeSource').innerHTML = `Imported from <a href="${escHtml(sourceUrl)}" target="_blank">${escHtml(domain)}</a>`;
+    } catch(e) {}
+
+    document.getElementById('servingCount').textContent = currentServings;
+    document.getElementById('scaleBadge').classList.add('hidden');
+
+    if (recipe.totalTime) {
+      document.getElementById('recipeTime').textContent = recipe.totalTime;
+      document.getElementById('metaTime').style.display = 'flex';
+    }
+    if (recipe.category) {
+      document.getElementById('recipeCategory').textContent = recipe.category;
+      document.getElementById('metaCategory').style.display = 'flex';
+    }
+
+    renderIngredients();
+
+    document.getElementById('stepsList').innerHTML = (recipe.steps || []).map((step, i) => `
+      <li class="step-item">
+        <div class="step-num">${i + 1}</div>
+        <textarea class="step-text" rows="3" oninput="autoResize(this)">${escHtml(step)}</textarea>
+      </li>
+    `).join('');
+
+    document.querySelectorAll('.step-text, .recipe-title').forEach(autoResize);
+    document.getElementById('recipeCard').classList.add('visible');
+    document.getElementById('recipeCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function renderIngredients() {
+    const scaleFactor = currentServings / baseServings;
+    document.getElementById('ingredientList').innerHTML = baseIngredients.map((ing, i) => {
+      let displayAmount = ing.amountText;
+      if (ing.parsedAmount !== null && scaleFactor !== 1) {
+        const scaled = ing.parsedAmount * scaleFactor;
+        displayAmount = ing.amountText.replace(/[\d½⅓⅔¼¾⅛⅜⅝⅞]+\.?\d*/g, formatAmount(scaled));
+      }
+      return `
+        <li class="ingredient-item">
+          <span class="ingredient-amount">${escHtml(displayAmount)}</span>
+          <input class="ingredient-name" type="text" value="${escHtml(ing.name)}" data-idx="${i}" />
+        </li>`;
+    }).join('');
+  }
+
+  function formatAmount(n) {
+    if (n === Math.floor(n)) return String(Math.floor(n));
+    const whole = Math.floor(n);
+    const frac = n - whole;
+    const fracs = [[0.25,'¼'],[0.33,'⅓'],[0.5,'½'],[0.67,'⅔'],[0.75,'¾'],[0.125,'⅛'],[0.375,'⅜'],[0.625,'⅝'],[0.875,'⅞']];
+    for (const [val, sym] of fracs) {
+      if (Math.abs(frac - val) < 0.04) return whole > 0 ? `${whole}${sym}` : sym;
+    }
+    return n.toFixed(2).replace(/\.?0+$/, '');
+  }
+
+  function changeServings(delta) {
+    const newVal = currentServings + delta;
+    if (newVal < 1 || newVal > 100) return;
+    currentServings = newVal;
+    document.getElementById('servingCount').textContent = currentServings;
+    const badge = document.getElementById('scaleBadge');
+    if (currentServings !== baseServings) {
+      badge.textContent = `${(currentServings / baseServings).toFixed(1).replace(/\.0$/,'')}×`;
+      badge.classList.remove('hidden');
+    } else {
+      badge.classList.add('hidden');
+    }
+    renderIngredients();
+  }
+
+  function autoResize(el) {
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 'px';
+  }
+
+  function saveRecipe() {
+    const toast = document.getElementById('saveToast');
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 2800);
+  }
+
+  function resetApp() {
+    document.getElementById('recipeCard').classList.remove('visible');
+    document.getElementById('urlInput').value = '';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function escHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+  }
+
+  document.getElementById('urlInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') importRecipe();
+  });
+</script>
+</body>
+</html>
