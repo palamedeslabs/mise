@@ -667,23 +667,26 @@
   function extractRecipeData(html, url) {
     if (!html) return `URL: ${url}\nNo HTML retrieved.`;
 
-    // Try JSON-LD schema first
+    // Try JSON-LD schema first — use a large slice to capture both ingredients AND steps
     const ldMatches = html.match(/<script[^>]+type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi) || [];
+    let bestLd = '';
     for (const m of ldMatches) {
-      const inner = m.replace(/<[^>]+>/g, '');
-      if (inner.includes('Recipe') || inner.includes('recipeIngredient')) {
-        return `JSON-LD Schema:\n${inner.slice(0, 8000)}`;
+      const inner = m.replace(/<[^>]+>/g, '').trim();
+      if (inner.includes('recipeIngredient') || inner.includes('recipeInstructions')) {
+        // Keep the largest matching block (most complete recipe data)
+        if (inner.length > bestLd.length) bestLd = inner;
       }
     }
+    if (bestLd) return `JSON-LD Schema:\n${bestLd.slice(0, 20000)}`;
 
-    // Fallback: strip to text
+    // Fallback: strip to text but grab more content
     const text = html
       .replace(/<style[\s\S]*?<\/style>/gi, '')
       .replace(/<script[\s\S]*?<\/script>/gi, '')
       .replace(/<[^>]+>/g, ' ')
       .replace(/\s+/g, ' ')
       .trim()
-      .slice(0, 12000);
+      .slice(0, 20000);
 
     return `Page text:\n${text}`;
   }
