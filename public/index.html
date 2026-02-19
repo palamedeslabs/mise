@@ -422,6 +422,8 @@
     width: 100%;
     resize: none;
     padding: 0;
+    min-height: 60px;
+    overflow: hidden;
   }
 
   .step-text:focus {
@@ -810,9 +812,13 @@ Rules:
       </li>
     `).join('');
 
-    document.querySelectorAll('.step-text, .recipe-title').forEach(autoResize);
     document.getElementById('recipeCard').classList.add('visible');
     document.getElementById('recipeCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    // Run autoResize AFTER card is visible so dimensions are correct
+    requestAnimationFrame(() => {
+      document.querySelectorAll('.step-text, .recipe-title').forEach(autoResize);
+    });
   }
 
   function renderIngredients() {
