@@ -145,6 +145,20 @@
   .library-empty h2 { font-family: 'Playfair Display', serif; font-size: 24px; margin-bottom: 12px; color: var(--ink); }
   .library-empty p { font-size: 15px; margin-bottom: 28px; }
 
+  /* SEARCH */
+  .search-bar { position: relative; margin-bottom: 32px; }
+  .search-input { width: 100%; padding: 13px 20px 13px 44px; border: 1.5px solid var(--border); border-radius: 12px; background: var(--white); font-family: 'DM Sans', sans-serif; font-size: 15px; color: var(--ink); outline: none; transition: border-color 0.2s; }
+  .search-input:focus { border-color: var(--accent); }
+  .search-input::placeholder { color: #B0A89C; }
+  .search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--warm-mid); font-size: 16px; pointer-events: none; }
+  .search-count { font-size: 13px; color: var(--warm-mid); margin-top: -20px; margin-bottom: 24px; }
+
+  /* DELETE BUTTON ON CARD */
+  .recipe-thumb { position: relative; }
+  .delete-btn { position: absolute; top: 10px; right: 10px; width: 30px; height: 30px; border-radius: 50%; background: rgba(26,22,18,0.55); border: none; color: white; font-size: 14px; cursor: pointer; display: none; align-items: center; justify-content: center; transition: background 0.15s; backdrop-filter: blur(4px); z-index: 2; }
+  .recipe-thumb:hover .delete-btn { display: flex; }
+  .delete-btn:hover { background: var(--accent); }
+
   /* TOAST */
   .save-toast { position: fixed; bottom: 32px; right: 32px; background: var(--ink); color: white; padding: 14px 22px; border-radius: 12px; font-size: 14px; font-weight: 500; display: none; align-items: center; gap: 10px; box-shadow: 0 8px 32px rgba(26,22,18,0.2); z-index: 200; }
   .save-toast.show { display: flex; animation: slideIn 0.3s ease both; }
@@ -294,6 +308,11 @@
       <h1>My Recipes</h1>
       <button class="nav-btn accent" onclick="showPage('import')">+ Import Recipe</button>
     </div>
+    <div class="search-bar" id="librarySearchBar" style="display:none">
+      <span class="search-icon">🔍</span>
+      <input class="search-input" id="searchInput" type="text" placeholder="Search recipes, ingredients, categories…" oninput="filterRecipes(this.value)" />
+    </div>
+    <div class="search-count" id="searchCount"></div>
     <div id="libraryContent"></div>
   </div>
 </div>
@@ -433,31 +452,79 @@
   }
 
   // ── LIBRARY ──
+  let allRecipes = [];
+
   async function loadLibrary() {
     const el = document.getElementById('libraryContent');
-    el.innerHTML = '<div style="color:var(--warm-mid);padding:40px 0;text-align:center">Loading…</div>';
+    const searchBar = document.getElementById('librarySearchBar');
+    el.innerHTML = '<div style="color:var(--warm-mid);padding:40px 0;text-align:center">Loading...</div>';
+    searchBar.style.display = 'none';
+    document.getElementById('searchCount').textContent = '';
+
     if (!currentUser) {
-      el.innerHTML = `<div class="library-empty"><h2>Sign in to see your recipes</h2><p>Create an account to save and access your collection.</p><button class="nav-btn primary" onclick="showModal('login')">Sign in</button></div>`;
+      el.innerHTML = '<div class="library-empty"><h2>Sign in to see your recipes</h2><p>Create an account to save and access your collection.</p><button class="nav-btn primary" onclick="showModal(\'login\')">Sign in</button></div>';
       return;
     }
+
     const { data, error } = await sb.from('recipes').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false });
     if (error) { el.innerHTML = '<p style="color:var(--accent);padding:40px">Error loading recipes.</p>'; return; }
+
     if (!data.length) {
-      el.innerHTML = `<div class="library-empty"><h2>No recipes yet</h2><p>Import your first recipe and save it to build your collection.</p><button class="nav-btn accent" onclick="showPage('import')">+ Import Recipe</button></div>`;
+      el.innerHTML = '<div class="library-empty"><h2>No recipes yet</h2><p>Import your first recipe and save it to build your collection.</p><button class="nav-btn accent" onclick="showPage(\'import\')">+ Import Recipe</button></div>';
       return;
     }
-    el.innerHTML = `<div class="recipe-grid">${data.map(r => `
-      <div class="recipe-thumb" onclick='openSavedRecipe(${JSON.stringify(r)})'>
-        ${r.image_url ? `<img class="thumb-img" src="${escHtml(r.image_url)}" onerror="this.outerHTML='<div class=\\'thumb-placeholder\\'>🍽</div>'" />` : `<div class="thumb-placeholder">🍽</div>`}
-        <div class="thumb-body">
-          <div class="thumb-title">${escHtml(r.title)}</div>
-          <div class="thumb-meta">
-            ${r.total_time ? `<span>⏱ ${escHtml(formatTime(r.total_time))}</span>` : ''}
-            ${r.servings ? `<span>👤 ${r.servings}</span>` : ''}
-            ${r.category ? `<span>${escHtml(r.category)}</span>` : ''}
-          </div>
-        </div>
-      </div>`).join('')}</div>`;
+
+    allRecipes = data;
+    searchBar.style.display = 'block';
+    document.getElementById('searchInput').value = '';
+    renderRecipeGrid(allRecipes);
+  }
+
+  function renderRecipeGrid(recipes) {
+    const el = document.getElementById('libraryContent');
+    const countEl = document.getElementById('searchCount');
+    if (!recipes.length) {
+      el.innerHTML = '<div class="library-empty"><h2>No matches</h2><p>Try a different search term.</p></div>';
+      countEl.textContent = '';
+      return;
+    }
+    countEl.textContent = recipes.length !== allRecipes.length ? recipes.length + ' of ' + allRecipes.length + ' recipes' : '';
+    el.innerHTML = '<div class="recipe-grid">' + recipes.map(function(r) {
+      const data = escHtml(JSON.stringify(r).replace(/'/g, "&#39;"));
+      return '<div class="recipe-thumb" onclick=\'openSavedRecipe(' + JSON.stringify(r) + ')\'>' +
+        '<button class="delete-btn" onclick="deleteRecipe(event,\'' + r.id + '\')">&#x2715;</button>' +
+        (r.image_url ? '<img class="thumb-img" src="' + escHtml(r.image_url) + '" onerror="this.outerHTML=\'<div class=&quot;thumb-placeholder&quot;>&#x1F37D;</div>\'" />' : '<div class="thumb-placeholder">&#x1F37D;</div>') +
+        '<div class="thumb-body">' +
+          '<div class="thumb-title">' + escHtml(r.title) + '</div>' +
+          '<div class="thumb-meta">' +
+            (r.total_time ? '<span>&#x23F1; ' + escHtml(formatTime(r.total_time)) + '</span>' : '') +
+            (r.servings ? '<span>Serves ' + r.servings + '</span>' : '') +
+            (r.category ? '<span>' + escHtml(r.category) + '</span>' : '') +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    }).join('') + '</div>';
+  }
+
+  function filterRecipes(query) {
+    if (!query.trim()) { renderRecipeGrid(allRecipes); return; }
+    const q = query.toLowerCase();
+    const filtered = allRecipes.filter(function(r) {
+      return r.title?.toLowerCase().includes(q) ||
+             r.category?.toLowerCase().includes(q) ||
+             (r.ingredients || []).some(function(i) { return i.name?.toLowerCase().includes(q); });
+    });
+    renderRecipeGrid(filtered);
+  }
+
+  async function deleteRecipe(event, id) {
+    event.stopPropagation();
+    if (!confirm('Delete this recipe?')) return;
+    const { error } = await sb.from('recipes').delete().eq('id', id).eq('user_id', currentUser.id);
+    if (error) { showToast('Error deleting recipe'); return; }
+    allRecipes = allRecipes.filter(function(r) { return r.id !== id; });
+    filterRecipes(document.getElementById('searchInput')?.value || '');
+    showToast('Recipe deleted');
   }
 
   function openSavedRecipe(r) {
@@ -533,36 +600,127 @@
     }
   }
 
+  function extractBestImage(html, pageUrl) {
+    // 1. Try og:image meta tag (most reliable for food blogs)
+    const og = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)
+               || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i);
+    if (og) return normalizeUrl(og[1], pageUrl);
+
+    // 2. Try twitter:image
+    const tw = html.match(/<meta[^>]+name=["']twitter:image["'][^>]+content=["']([^"']+)["']/i)
+               || html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+name=["']twitter:image["']/i);
+    if (tw) return normalizeUrl(tw[1], pageUrl);
+
+    // 3. Try first large content image (skip logos, icons, avatars)
+    const imgMatches = html.matchAll(/<img[^>]+src=["']([^"']+)["'][^>]*>/gi);
+    for (const m of imgMatches) {
+      const src = m[1];
+      // Skip tiny images, icons, logos, avatars, tracking pixels
+      if (/logo|icon|avatar|pixel|badge|button|sprite|1x1|blank/i.test(src)) continue;
+      if (src.startsWith('data:')) continue;
+      // Prefer images that look like food photos
+      if (/photo|image|img|recipe|food|dish/i.test(src) || src.match(/\.(jpg|jpeg|png|webp)/i)) {
+        return normalizeUrl(src, pageUrl);
+      }
+    }
+    return null;
+  }
+
+  function normalizeUrl(url, pageUrl) {
+    if (!url) return null;
+    if (url.startsWith('http')) return url;
+    if (url.startsWith('//')) return 'https:' + url;
+    if (url.startsWith('/')) {
+      try { return new URL(pageUrl).origin + url; } catch(e) {}
+    }
+    return url;
+  }
+
   function extractRecipeData(html, url) {
-    if (!html) return `URL: ${url}\nNo HTML retrieved.`;
+    if (!html) return 'URL: ' + url + '\nNo HTML retrieved.';
+
+    // Try JSON-LD schema first
     const ldMatches = html.match(/<script[^>]+type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi) || [];
     for (const m of ldMatches) {
       const inner = m.replace(/<script[^>]*>/i, '').replace(/<\/script>/i, '').trim();
       try {
         let data = JSON.parse(inner);
         if (data['@graph']) data = data['@graph'];
-        if (Array.isArray(data)) data = data.find(d => d['@type'] === 'Recipe' || (Array.isArray(d['@type']) && d['@type'].includes('Recipe')));
-        if (!data?.recipeIngredient) continue;
+        if (Array.isArray(data)) data = data.find(function(d) { return d['@type'] === 'Recipe' || (Array.isArray(d['@type']) && d['@type'].includes('Recipe')); });
+        if (!data || !data.recipeIngredient) continue;
         let steps = [];
         const ins = data.recipeInstructions;
-        if (typeof ins === 'string') steps = ins.split(/\n+/).map(s => s.trim()).filter(Boolean);
-        else if (Array.isArray(ins)) steps = ins.map(s => typeof s === 'string' ? s.trim() : (s['@type'] === 'HowToSection' ? (s.itemListElement||[]).map(x => x.text||'').join(' ') : (s.text||s.name||''))).filter(Boolean);
-        return `Parsed recipe data:\n${JSON.stringify({ name: data.name, image: Array.isArray(data.image) ? data.image[0] : (typeof data.image === 'object' ? data.image.url : data.image), recipeYield: data.recipeYield, totalTime: data.totalTime, recipeCategory: data.recipeCategory, recipeIngredient: data.recipeIngredient, recipeInstructions: steps }, null, 2)}`;
+        if (typeof ins === 'string') steps = ins.split(/\n+/).map(function(s) { return s.trim(); }).filter(Boolean);
+        else if (Array.isArray(ins)) steps = ins.map(function(s) {
+          if (typeof s === 'string') return s.trim();
+          if (s['@type'] === 'HowToSection') return (s.itemListElement||[]).map(function(x) { return x.text||''; }).join(' ');
+          return s.text || s.name || '';
+        }).filter(Boolean);
+        const img = data.image;
+        const imageUrl = Array.isArray(img) ? img[0] : (typeof img === 'object' ? img.url : img);
+        // Fall back to scraping image if schema image is missing
+        const finalImage = (imageUrl && !imageUrl.includes('logo')) ? normalizeUrl(imageUrl, url) : extractBestImage(html, url);
+        return 'Parsed recipe data (structured):\n' + JSON.stringify({
+          name: data.name,
+          image: finalImage,
+          recipeYield: data.recipeYield,
+          totalTime: data.totalTime,
+          recipeCategory: data.recipeCategory,
+          recipeIngredient: data.recipeIngredient,
+          recipeInstructions: steps
+        }, null, 2);
       } catch(e) {}
     }
-    return `Page text:\n${html.replace(/<style[\s\S]*?<\/style>/gi,'').replace(/<script[\s\S]*?<\/script>/gi,'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim().slice(0,20000)}`;
+
+    // No JSON-LD — extract image directly before stripping HTML
+    const bestImage = extractBestImage(html, url);
+
+    // Preserve line breaks and list structure before stripping tags
+    const structured = html
+      .replace(/<style[\s\S]*?<\/style>/gi, '')
+      .replace(/<script[\s\S]*?<\/script>/gi, '')
+      .replace(/<\/li>/gi, '\n')
+      .replace(/<\/p>/gi, '\n')
+      .replace(/<\/h[1-6]>/gi, '\n')
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<[^>]+>/g, '')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim()
+      .slice(0, 20000);
+
+    return 'Best image found: ' + (bestImage || 'none') + '\n\nPage text (line-preserved):\n' + structured;
   }
+
 
   function buildPrompt(url, extracted) {
-    return `You are a recipe parser. Return ONLY valid JSON — no markdown, no code fences.
+    const isStructured = extracted.startsWith('Parsed recipe data');
 
-URL: ${url}
-Content: ${extracted}
+    // Pull pre-extracted image out of fallback content so Claude uses it directly
+    let imageHint = '';
+    const imgMatch = extracted.match(/^Best image found: (.+)/m);
+    if (imgMatch && imgMatch[1] !== 'none') {
+      imageHint = '\nPre-extracted image URL (use this for the image field): ' + imgMatch[1];
+    }
 
-Return: {"title":"...","image":"url or null","servings":4,"totalTime":"45 mins or null","category":"Dinner or null","ingredients":[{"amount":"1 cup","name":"flour"}],"steps":["Step one.","Step two."]}
-
-Rules: US units only. Split each ingredient into amount+name. Include ALL steps. Steps as full sentences. servings as number only.`;
+    return 'You are a recipe parser. Return ONLY valid JSON — no markdown, no code fences, no explanation.\n\n' +
+      'URL: ' + url + imageHint + '\n\n' +
+      'Content:\n' + extracted + '\n\n' +
+      'Return this exact JSON structure:\n' +
+      '{"title":"Recipe name","image":"url or null","servings":4,"totalTime":"45 mins or null","category":"Dinner or null",' +
+      '"ingredients":[{"amount":"1 cup","name":"all-purpose flour"}],' +
+      '"steps":["Complete step one sentence.","Complete step two sentence."]}\n\n' +
+      'Critical rules:\n' +
+      '- image: use the pre-extracted image URL if provided above; otherwise find any food photo URL in the content\n' +
+      '- ingredients: split EVERY ingredient into amount + name. Amount includes number AND unit (e.g. "2 lbs", "1/2 cup", "3 cloves"). If no quantity, use "to taste"\n' +
+      '- ' + (isStructured ? 'recipeIngredient entries are already split — parse them carefully into amount+name' : 'Look carefully for ingredient lines — quantities often appear at the start of each line or before the ingredient name') + '\n' +
+      '- Convert all measurements to US units (cups, tbsp, tsp, oz, lbs, °F)\n' +
+      '- steps: include ALL instructions as complete sentences\n' +
+      '- servings: number only (e.g. 4 not "4 servings")\n' +
+      '- Never leave amount blank — use "to taste", "as needed", or "1" if truly no quantity given';
   }
+
 
   function renderRecipe(recipe, sourceUrl) {
     hideStatus();
