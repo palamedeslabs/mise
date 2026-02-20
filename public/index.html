@@ -242,7 +242,7 @@
       <input type="url" class="url-input" id="urlInput" placeholder="https://www.allrecipes.com/recipe/..." autocomplete="off" />
       <button class="import-btn" id="importBtn" onclick="importRecipe()">Import</button>
     </div>
-    <div class="sample-links">
+    <div class="sample-links" id="sampleLinks">
       <span style="font-size:12px;color:var(--warm-mid);align-self:center;">Try a sample:</span>
       <a class="sample-link" onclick="useSample('https://www.allrecipes.com/recipe/10813/best-chocolate-chip-cookies/')">Chocolate Chip Cookies</a>
       <a class="sample-link" onclick="useSample('https://www.allrecipes.com/recipe/228122/best-pasta-carbonara/')">Pasta Carbonara</a>
@@ -335,6 +335,7 @@
       const config = await fetch('/api/config').then(r => r.json());
       sb = createClient(config.supabaseUrl, config.supabaseKey);
       await initAuth();
+      loadSampleLinks(); // non-blocking — updates links when cache responds
     } catch(e) {
       console.error('Failed to load config:', e);
     }
@@ -534,6 +535,44 @@
   }
 
   // ── IMPORT ──
+  const FALLBACK_SAMPLES = [
+    { url: 'https://www.allrecipes.com/recipe/10813/best-chocolate-chip-cookies/', title: 'Chocolate Chip Cookies' },
+    { url: 'https://www.allrecipes.com/recipe/228122/best-pasta-carbonara/', title: 'Pasta Carbonara' },
+    { url: 'https://www.allrecipes.com/recipe/14231/guacamole/', title: 'Guacamole' },
+    { url: 'https://www.allrecipes.com/recipe/87663/slow-cooker-beef-stew/', title: 'Crockpot Beef Stew' }
+  ];
+
+  async function loadSampleLinks() {
+    const container = document.getElementById('sampleLinks');
+    if (!container || !sb) return;
+
+    try {
+      // Pull all cached recipes, pick 4 at random
+      const { data } = await sb.from('recipe_cache').select('url, parsed_json');
+      const pool = (data || []).filter(r => r.parsed_json && r.parsed_json.title);
+
+      // Shuffle and pick up to 4
+      const shuffled = pool.sort(() => Math.random() - 0.5).slice(0, 4);
+      const samples = shuffled.length >= 2 ? shuffled : FALLBACK_SAMPLES;
+
+      // Rebuild the links
+      const label = container.querySelector('span');
+      container.innerHTML = '';
+      container.appendChild(label);
+      samples.forEach(function(s) {
+        const title = s.parsed_json ? s.parsed_json.title : s.title;
+        const url = s.url;
+        const a = document.createElement('a');
+        a.className = 'sample-link';
+        a.textContent = title;
+        a.onclick = function() { useSample(url); };
+        container.appendChild(a);
+      });
+    } catch(e) {
+      // Cache unavailable — fallback links stay as-is
+    }
+  }
+
   function useSample(url) { document.getElementById('urlInput').value = url; importRecipe(); }
 
   function setStatus(msg, isError = false) {
