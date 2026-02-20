@@ -301,19 +301,25 @@
 <div class="save-toast" id="saveToast"></div>
 
 <script>
-  // ── CONFIG: replace these two values after creating your Supabase project ──
-  const SUPABASE_URL = 'https://mbzvwuwmpmzspekzzrkm.supabase.co';
-  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1ienZ3dXdtcG16c3Bla3p6cmttIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1NTczNzQsImV4cCI6MjA4NzEzMzM3NH0.jnCn_nUIEmj29ytVpxYv5HQ4hP78CifaCMhsVvZc0F0';
-  // ──────────────────────────────────────────────────────────────────────────
-
   const { createClient } = window.supabase;
-  const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  let sb = null;
 
   let currentUser = null;
   let baseServings = 4;
   let currentServings = 4;
   let baseIngredients = [];
   let currentRecipeData = null;
+
+  // ── INIT: fetch config from server then boot auth ──
+  async function init() {
+    try {
+      const config = await fetch('/api/config').then(r => r.json());
+      sb = createClient(config.supabaseUrl, config.supabaseKey);
+      await initAuth();
+    } catch(e) {
+      console.error('Failed to load config:', e);
+    }
+  }
 
   // ── AUTH ──
   async function initAuth() {
@@ -478,11 +484,27 @@
     document.getElementById('recipeCard').classList.remove('visible');
     document.getElementById('importBtn').disabled = true;
     document.getElementById('saveBtn').textContent = '✓ Save Recipe';
-    setStatus('Fetching recipe page…');
+    setStatus('Looking up recipe…');
 
     try {
+      // ── Step 1: Check cache first ──
+      const { data: cached } = await sb
+        .from('recipe_cache')
+        .select('parsed_json')
+        .eq('url', url)
+        .single();
+
+      if (cached?.parsed_json) {
+        const recipe = cached.parsed_json;
+        recipe.sourceUrl = url;
+        renderRecipe(recipe, url);
+        return; // done — no API call needed
+      }
+
+      // ── Step 2: Cache miss — fetch and parse ──
       let html = '';
       try {
+        setStatus('Fetching recipe page…');
         const r = await fetch('/api/fetch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) });
         html = (await r.json()).html || '';
       } catch(e) {}
@@ -497,6 +519,10 @@
       const text = (await cr.json()).text;
       const recipe = JSON.parse(text.replace(/^```(?:json)?/i, '').replace(/```$/, '').trim());
       recipe.sourceUrl = url;
+
+      // ── Step 3: Save to cache for next time ──
+      await sb.from('recipe_cache').insert({ url, parsed_json: recipe });
+
       renderRecipe(recipe, url);
 
     } catch(err) {
@@ -606,7 +632,7 @@ Rules: US units only. Split each ingredient into amount+name. Include ALL steps.
   document.getElementById('urlInput').addEventListener('keydown', e => { if (e.key === 'Enter') importRecipe(); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
-  initAuth();
+  init();
 </script>
 </body>
 </html>
