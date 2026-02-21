@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mise — Recipe</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: #F7F3EE;
+    --ink: #1A1612;
+    --warm-mid: #8B7355;
+    --accent: #C84B31;
+    --accent-soft: #F0E8E4;
+    --border: #E2D9CE;
+    --white: #FFFFFF;
+    --step-bg: #F2EDE6;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--cream); color: var(--ink); font-family: 'DM Sans', sans-serif; font-weight: 300; min-height: 100vh; }
+
+  header { padding: 20px 40px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); background: var(--cream); position: sticky; top: 0; z-index: 100; }
+  .logo { font-family: 'Playfair Display', serif; font-size: 26px; font-weight: 700; letter-spacing: -0.5px; color: var(--ink); text-decoration: none; }
+  .logo span { color: var(--accent); }
+  .header-right { display: flex; gap: 10px; }
+  .nav-btn { padding: 9px 18px; border-radius: 10px; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s; border: 1.5px solid var(--border); background: transparent; color: var(--ink); text-decoration: none; display: inline-flex; align-items: center; }
+  .nav-btn:hover { border-color: var(--ink); }
+  .nav-btn.primary { background: var(--ink); color: white; border-color: var(--ink); }
+  .nav-btn.primary:hover { background: #2E2620; }
+  .nav-btn.accent { background: var(--accent); color: white; border-color: var(--accent); }
+  .nav-btn.accent:hover { background: #A33A22; }
+
+  /* RECIPE */
+  .recipe-card { max-width: 860px; margin: 48px auto 80px; padding: 0 24px; animation: fadeUp 0.4s ease both; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+  .card-inner { background: var(--white); border-radius: 20px; overflow: hidden; border: 1px solid var(--border); box-shadow: 0 4px 40px rgba(26,22,18,0.06); }
+  .recipe-hero { width: 100%; height: 380px; object-fit: cover; display: block; }
+  .recipe-hero-placeholder { width: 100%; height: 240px; background: linear-gradient(135deg, var(--step-bg) 0%, var(--border) 100%); display: flex; align-items: center; justify-content: center; font-size: 64px; }
+  .card-body { padding: 44px 52px 52px; }
+
+  .recipe-title { font-family: 'Playfair Display', serif; font-size: 36px; font-weight: 700; line-height: 1.15; letter-spacing: -0.5px; color: var(--ink); margin-bottom: 8px; }
+  .recipe-source { font-size: 12px; color: var(--warm-mid); margin-bottom: 28px; }
+  .recipe-source a { color: var(--warm-mid); text-decoration: none; }
+  .recipe-source a:hover { color: var(--accent); }
+
+  .meta-row { display: flex; gap: 28px; flex-wrap: wrap; padding: 20px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); margin-bottom: 40px; }
+  .meta-item { display: flex; flex-direction: column; gap: 4px; }
+  .meta-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--warm-mid); }
+  .meta-value { font-size: 15px; font-weight: 500; color: var(--ink); }
+
+  .serving-scaler { display: flex; align-items: center; gap: 8px; }
+  .scale-btn { width: 28px; height: 28px; border-radius: 50%; border: 1.5px solid var(--border); background: var(--cream); color: var(--ink); font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+  .scale-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+  .serving-count { font-size: 18px; font-weight: 500; min-width: 24px; text-align: center; }
+  .scale-badge { display: inline-block; background: var(--accent); color: white; font-size: 10px; font-weight: 500; padding: 2px 7px; border-radius: 10px; margin-left: 4px; }
+  .scale-badge.hidden { display: none; }
+
+  .recipe-columns { display: grid; grid-template-columns: 280px 1fr; gap: 52px; align-items: start; }
+  .section-title { font-family: 'Playfair Display', serif; font-size: 22px; font-weight: 700; margin-bottom: 20px; }
+
+  .ingredient-list { list-style: none; }
+  .ingredient-item { padding: 10px 0; border-bottom: 1px solid var(--border); display: flex; gap: 12px; font-size: 14px; line-height: 1.5; }
+  .ingredient-item:last-child { border-bottom: none; }
+  .ingredient-amount { font-weight: 500; color: var(--accent); min-width: 60px; font-size: 13px; flex-shrink: 0; }
+  .ingredient-name { color: var(--ink); }
+
+  .steps-list { list-style: none; display: flex; flex-direction: column; gap: 20px; }
+  .step-item { display: flex; gap: 18px; align-items: flex-start; }
+  .step-num { width: 30px; height: 30px; border-radius: 50%; background: var(--ink); color: white; font-size: 12px; font-weight: 500; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px; }
+  .step-text { font-size: 15px; line-height: 1.7; color: var(--ink); }
+
+  /* ACTION BAR */
+  .action-bar { margin-top: 44px; padding-top: 28px; border-top: 1px solid var(--border); display: flex; gap: 12px; justify-content: space-between; align-items: center; flex-wrap: wrap; }
+  .action-right { display: flex; gap: 12px; }
+  .btn { padding: 12px 22px; border-radius: 10px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 500; cursor: pointer; transition: all 0.15s; border: 1.5px solid var(--border); background: transparent; color: var(--ink); display: inline-flex; align-items: center; gap: 8px; }
+  .btn:hover { border-color: var(--ink); }
+  .btn.primary { background: var(--ink); color: white; border-color: var(--ink); }
+  .btn.primary:hover { background: #2E2620; }
+  .btn.accent { background: var(--accent); color: white; border-color: var(--accent); }
+  .btn.accent:hover { background: #A33A22; }
+  .imported-by { font-size: 12px; color: var(--warm-mid); }
+
+  /* LOADING / ERROR */
+  .state-page { max-width: 500px; margin: 120px auto; padding: 0 24px; text-align: center; }
+  .state-page h2 { font-family: 'Playfair Display', serif; font-size: 28px; margin-bottom: 12px; }
+  .state-page p { color: var(--warm-mid); font-size: 15px; margin-bottom: 28px; line-height: 1.6; }
+  .spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 24px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* TOAST */
+  .toast { position: fixed; bottom: 32px; right: 32px; background: var(--ink); color: white; padding: 14px 22px; border-radius: 12px; font-size: 14px; font-weight: 500; display: none; box-shadow: 0 8px 32px rgba(26,22,18,0.2); z-index: 200; }
+  .toast.show { display: block; animation: slideIn 0.3s ease both; }
+  @keyframes slideIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
+  @media (max-width: 660px) {
+    .recipe-columns { grid-template-columns: 1fr; }
+    .card-body { padding: 24px; }
+    header { padding: 16px 20px; }
+    .recipe-title { font-size: 28px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <a class="logo" href="/">mise<span>.</span></a>
+  <div class="header-right">
+    <a class="nav-btn" href="/">← Import a Recipe</a>
+    <a class="nav-btn accent" href="/" id="saveThisBtn" style="display:none">Save to My Collection</a>
+  </div>
+</header>
+
+<!-- Loading state -->
+<div class="state-page" id="loadingState">
+  <div class="spinner"></div>
+  <p>Loading recipe…</p>
+</div>
+
+<!-- Error state -->
+<div class="state-page" id="errorState" style="display:none">
+  <h2>Recipe not found</h2>
+  <p>This recipe may have been deleted or the link is incorrect.</p>
+  <a class="nav-btn primary" href="/">Import a Recipe</a>
+</div>
+
+<!-- Recipe -->
+<div class="recipe-card" id="recipeCard" style="display:none">
+  <div class="card-inner">
+    <div id="heroContainer"></div>
+    <div class="card-body">
+      <h1 class="recipe-title" id="recipeTitle"></h1>
+      <div class="recipe-source" id="recipeSource"></div>
+      <div class="meta-row">
+        <div class="meta-item">
+          <span class="meta-label">Servings</span>
+          <div class="serving-scaler">
+            <button class="scale-btn" onclick="changeServings(-1)">−</button>
+            <span class="serving-count" id="servingCount">4</span>
+            <button class="scale-btn" onclick="changeServings(1)">+</button>
+            <span class="scale-badge hidden" id="scaleBadge"></span>
+          </div>
+        </div>
+        <div class="meta-item" id="metaTime" style="display:none">
+          <span class="meta-label">Total Time</span>
+          <span class="meta-value" id="recipeTime"></span>
+        </div>
+        <div class="meta-item" id="metaCategory" style="display:none">
+          <span class="meta-label">Category</span>
+          <span class="meta-value" id="recipeCategory"></span>
+        </div>
+      </div>
+      <div class="recipe-columns">
+        <div>
+          <div class="section-title">Ingredients</div>
+          <ul class="ingredient-list" id="ingredientList"></ul>
+        </div>
+        <div>
+          <div class="section-title">Steps</div>
+          <ol class="steps-list" id="stepsList"></ol>
+        </div>
+      </div>
+      <div class="action-bar">
+        <span class="imported-by" id="importedBy"></span>
+        <div class="action-right">
+          <button class="btn" onclick="copyLink()">🔗 Copy Link</button>
+          <a class="btn accent" href="/" id="importThisBtn">Save to My Collection</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  let baseServings = 4;
+  let currentServings = 4;
+  let baseIngredients = [];
+
+  async function loadRecipe() {
+    const id = window.location.pathname.split('/').pop();
+    if (!id) { showError(); return; }
+
+    try {
+      const res = await fetch('/api/recipe?id=' + id);
+      if (!res.ok) { showError(); return; }
+      const r = await res.json();
+      renderRecipe(r);
+    } catch(e) {
+      showError();
+    }
+  }
+
+  function renderRecipe(r) {
+    document.title = 'Mise — ' + r.title;
+
+    // Update meta tags for social sharing
+    setMeta('og:title', r.title + ' — Mise');
+    setMeta('og:description', 'Clean recipe — no ads, no life stories. Just ingredients and steps.');
+    if (r.image_url) setMeta('og:image', r.image_url);
+    setMeta('og:url', window.location.href);
+
+    baseServings = r.servings || 4;
+    currentServings = baseServings;
+    baseIngredients = (r.ingredients || []).map(function(ing) {
+      return Object.assign({}, ing, { parsedAmount: parseFloat(ing.amount) || null, amountText: ing.amount || '' });
+    });
+
+    // Hero image
+    const hero = document.getElementById('heroContainer');
+    if (r.image_url) {
+      const img = document.createElement('img');
+      img.className = 'recipe-hero';
+      img.src = r.image_url;
+      img.alt = r.title;
+      img.onerror = function() { hero.innerHTML = '<div class="recipe-hero-placeholder">🍽</div>'; };
+      hero.appendChild(img);
+    } else {
+      hero.innerHTML = '<div class="recipe-hero-placeholder">🍽</div>';
+    }
+
+    document.getElementById('recipeTitle').textContent = r.title;
+
+    if (r.source_url) {
+      try {
+        const domain = new URL(r.source_url).hostname.replace('www.', '');
+        document.getElementById('recipeSource').innerHTML = 'Originally from <a href="' + escHtml(r.source_url) + '" target="_blank">' + escHtml(domain) + '</a>';
+      } catch(e) {}
+    }
+
+    document.getElementById('servingCount').textContent = currentServings;
+
+    if (r.total_time) { document.getElementById('recipeTime').textContent = formatTime(r.total_time); document.getElementById('metaTime').style.display = 'flex'; }
+    if (r.category) { document.getElementById('recipeCategory').textContent = r.category; document.getElementById('metaCategory').style.display = 'flex'; }
+
+    renderIngredients();
+
+    document.getElementById('stepsList').innerHTML = (r.steps || []).map(function(s, i) {
+      return '<li class="step-item"><div class="step-num">' + (i+1) + '</div><div class="step-text">' + escHtml(s) + '</div></li>';
+    }).join('');
+
+    // Set the "Save to My Collection" link to import this URL
+    if (r.source_url) {
+      const saveBtn = document.getElementById('importThisBtn');
+      saveBtn.href = '/?import=' + encodeURIComponent(r.source_url);
+    }
+
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('recipeCard').style.display = 'block';
+  }
+
+  function renderIngredients() {
+    const sf = currentServings / baseServings;
+    document.getElementById('ingredientList').innerHTML = baseIngredients.map(function(ing) {
+      let amt = ing.amountText;
+      if (ing.parsedAmount !== null && sf !== 1) {
+        amt = ing.amountText.replace(/[\d½⅓⅔¼¾⅛⅜⅝⅞]+\.?\d*/g, formatAmount(ing.parsedAmount * sf));
+      }
+      return '<li class="ingredient-item"><span class="ingredient-amount">' + escHtml(amt) + '</span><span class="ingredient-name">' + escHtml(ing.name) + '</span></li>';
+    }).join('');
+  }
+
+  function changeServings(delta) {
+    const n = currentServings + delta;
+    if (n < 1 || n > 100) return;
+    currentServings = n;
+    document.getElementById('servingCount').textContent = n;
+    const badge = document.getElementById('scaleBadge');
+    if (n !== baseServings) {
+      badge.textContent = (n/baseServings).toFixed(1).replace(/\.0$/, '') + '×';
+      badge.classList.remove('hidden');
+    } else {
+      badge.classList.add('hidden');
+    }
+    renderIngredients();
+  }
+
+  function copyLink() {
+    navigator.clipboard.writeText(window.location.href).then(function() {
+      showToast('🔗 Link copied!');
+    });
+  }
+
+  function showError() {
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('errorState').style.display = 'block';
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(function() { t.classList.remove('show'); }, 2500);
+  }
+
+  function setMeta(property, content) {
+    let el = document.querySelector('meta[property="' + property + '"]');
+    if (!el) { el = document.createElement('meta'); el.setAttribute('property', property); document.head.appendChild(el); }
+    el.setAttribute('content', content);
+  }
+
+  function formatTime(t) {
+    if (!t || !t.startsWith('PT')) return t || '';
+    const h = t.match(/(\d+)H/)?.[1], m = t.match(/(\d+)M/)?.[1];
+    if (h && m) return h + 'h ' + m + 'm';
+    if (h) return h + 'h';
+    if (m) return m + ' mins';
+    return t;
+  }
+
+  function formatAmount(n) {
+    if (n === Math.floor(n)) return String(Math.floor(n));
+    const whole = Math.floor(n), frac = n - whole;
+    for (const [v,s] of [[0.25,'¼'],[0.33,'⅓'],[0.5,'½'],[0.67,'⅔'],[0.75,'¾'],[0.125,'⅛'],[0.375,'⅜'],[0.625,'⅝'],[0.875,'⅞']]) {
+      if (Math.abs(frac-v) < 0.04) return whole > 0 ? whole + s : s;
+    }
+    return n.toFixed(2).replace(/\.?0+$/, '');
+  }
+
+  function escHtml(s) {
+    return s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;') : '';
+  }
+
+  loadRecipe();
+</script>
+</body>
+</html>
