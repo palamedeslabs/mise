@@ -1,5 +1,6 @@
 {
   "rewrites": [
+    { "source": "/recipe/:id", "destination": "/recipe.html" },
     { "source": "/api/(.*)", "destination": "/api/$1" }
   ]
 }
