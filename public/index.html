@@ -294,7 +294,10 @@
         </div>
         <div class="action-bar">
           <button class="btn-secondary" onclick="resetApp()">Import Another</button>
-          <button class="btn-primary" id="saveBtn" onclick="saveRecipe()">✓ Save Recipe</button>
+          <div style="display:flex;gap:10px">
+            <button class="btn-secondary" id="shareBtn" onclick="shareRecipe()" style="display:none">🔗 Share</button>
+            <button class="btn-primary" id="saveBtn" onclick="saveRecipe()">✓ Save Recipe</button>
+          </div>
         </div>
       </div>
     </div>
@@ -328,6 +331,7 @@
   let currentServings = 4;
   let baseIngredients = [];
   let currentRecipeData = null;
+  let currentSavedId = null;
 
   // ── INIT: fetch config from server then boot auth ──
   async function init() {
@@ -428,6 +432,22 @@
     const btn = document.getElementById('saveBtn');
     btn.disabled = true; btn.textContent = 'Saving…';
 
+    // Check for duplicate by source_url
+    if (currentRecipeData.sourceUrl) {
+      const { data: existing } = await sb.from('recipes')
+        .select('id')
+        .eq('user_id', currentUser.id)
+        .eq('source_url', currentRecipeData.sourceUrl)
+        .single();
+      if (existing) {
+        btn.disabled = false; btn.textContent = '✓ Save Recipe';
+        currentSavedId = existing.id;
+        document.getElementById('shareBtn').style.display = 'inline-flex';
+        showToast('Already in your collection');
+        return;
+      }
+    }
+
     const title = document.getElementById('recipeTitle').value;
     const steps = Array.from(document.querySelectorAll('.step-text')).map(t => t.value);
     const ingredients = baseIngredients.map((ing, i) => {
@@ -435,7 +455,7 @@
       return { amount: ing.amountText, name: nameEl ? nameEl.value : ing.name };
     });
 
-    const { error } = await sb.from('recipes').insert({
+    const { data: saved, error } = await sb.from('recipes').insert({
       user_id: currentUser.id,
       title,
       image_url: currentRecipeData.image || null,
@@ -445,11 +465,18 @@
       category: Array.isArray(currentRecipeData.category) ? currentRecipeData.category[0] : (currentRecipeData.category || null),
       ingredients,
       steps
-    });
+    }).select('id').single();
 
     btn.disabled = false;
     if (error) { showToast('Error: ' + error.message); btn.textContent = '✓ Save Recipe'; console.error(error); }
-    else { showToast('✓ Saved to your collection'); btn.textContent = '✓ Saved!'; }
+    else {
+      showToast('✓ Saved to your collection');
+      btn.textContent = '✓ Saved!';
+      if (saved?.id) {
+        currentSavedId = saved.id;
+        document.getElementById('shareBtn').style.display = 'inline-flex';
+      }
+    }
   }
 
   // ── LIBRARY ──
@@ -530,8 +557,12 @@
 
   function openSavedRecipe(r) {
     currentRecipeData = { image: r.image_url, sourceUrl: r.source_url, totalTime: r.total_time, category: r.category };
+    currentSavedId = r.id;
     showPage('import');
     renderRecipe({ title: r.title, image: r.image_url, servings: r.servings, totalTime: r.total_time, category: r.category, ingredients: r.ingredients, steps: r.steps }, r.source_url || '');
+    document.getElementById('saveBtn').textContent = '✓ Saved!';
+    document.getElementById('saveBtn').disabled = true;
+    document.getElementById('shareBtn').style.display = 'inline-flex';
   }
 
   // ── IMPORT ──
@@ -821,8 +852,14 @@
     renderIngredients();
   }
 
+  function shareRecipe() {
+    if (!currentSavedId) return;
+    const url = window.location.origin + '/recipe/' + currentSavedId;
+    navigator.clipboard.writeText(url).then(function() { showToast('🔗 Link copied!'); });
+  }
+
   function autoResize(el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; }
-  function resetApp() { document.getElementById('recipeCard').classList.remove('visible'); document.getElementById('urlInput').value = ''; currentRecipeData = null; window.scrollTo({ top: 0, behavior: 'smooth' }); }
+  function resetApp() { document.getElementById('recipeCard').classList.remove('visible'); document.getElementById('urlInput').value = ''; currentRecipeData = null; currentSavedId = null; document.getElementById('shareBtn').style.display = 'none'; document.getElementById('saveBtn').textContent = '✓ Save Recipe'; window.scrollTo({ top: 0, behavior: 'smooth' }); }
   function showToast(msg) { const t = document.getElementById('saveToast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2800); }
   function escHtml(s) { return s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;') : ''; }
 
