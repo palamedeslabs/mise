@@ -438,9 +438,10 @@
         .select('id')
         .eq('user_id', currentUser.id)
         .eq('source_url', currentRecipeData.sourceUrl)
-        .single();
+        .maybeSingle(); // maybeSingle returns null instead of error when no row found
       if (existing) {
-        btn.disabled = false; btn.textContent = '✓ Save Recipe';
+        btn.disabled = false; btn.textContent = '✓ Saved!';
+        btn.disabled = true;
         currentSavedId = existing.id;
         document.getElementById('shareBtn').style.display = 'inline-flex';
         showToast('Already in your collection');
